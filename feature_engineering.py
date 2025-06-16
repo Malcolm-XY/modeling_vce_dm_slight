@@ -161,6 +161,16 @@ def compute_distance_matrix(dataset, projection_params=None, visualize=True):
 
     coords = np.vstack((x, y, z)).T
 
+    # temporal---start---
+    if projection_type == '2d':
+        distribution = utils_feature_loading.read_distribution(dataset, 'manual')
+        
+        coords = np.vstack((x, y, z)).T
+        diff = coords[:, np.newaxis, :] - coords[np.newaxis, :, :]
+        distance_matrix = np.sqrt(np.sum(diff ** 2, axis=-1))
+        return channel_names, distance_matrix
+    # temporal---end---
+
     if projection_type == '3d':
         # 计算球面距离（单位球半径 R = 1）
         norms = np.linalg.norm(coords, axis=1, keepdims=True)

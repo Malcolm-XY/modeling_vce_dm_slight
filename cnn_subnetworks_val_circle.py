@@ -291,9 +291,10 @@ if __name__ == '__main__':
     for selection_rate in selection_rate_list:
         # cnn_subnetworks_evaluation_circle_control_1(argument='data_driven_pcc_10_15', selection_rate=selection_rate, feature_cm='pcc', save=True)
         # cnn_subnetworks_evaluation_circle_control_2(selection_rate=selection_rate, feature_cm='pcc', save=True)
-        
+
+        cnn_subnetworks_eval_circle_rcm_intergrated('basic', 'differ', {"type": "2d"}, selection_rate, 'pcc', save=True)        
         # cnn_subnetworks_eval_circle_rcm_intergrated('basic', 'differ', {"type": "3d"}, selection_rate, 'pcc', save=True)
-        cnn_subnetworks_eval_circle_rcm_intergrated('basic', 'differ', {"type": "euclidean"}, selection_rate, 'pcc', save=True)
+        # cnn_subnetworks_eval_circle_rcm_intergrated('basic', 'differ', {"type": "euclidean"}, selection_rate, 'pcc', save=True)
     
     # %% End
     from cnn_val_circle import end_program_actions
