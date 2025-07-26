@@ -307,7 +307,7 @@ def fc_matrices_circle(dataset, subject_range=range(1, 2), experiment_range=rang
     band = band.lower()
 
     valid_datasets = {'SEED', 'DREAMER'}
-    valid_features = {'pcc', 'plv', 'mi'}
+    valid_features = {'pcc', 'plv', 'mi', 'pli', 'wpli'}
     valid_bands = {'joint', 'theta', 'delta', 'alpha', 'beta', 'gamma'}
 
     if dataset not in valid_datasets:
@@ -354,7 +354,11 @@ def fc_matrices_circle(dataset, subject_range=range(1, 2), experiment_range=rang
                     result = compute_plv_matrices(data, sampling_rate)
                 elif feature == 'mi':
                     result = compute_mi_matrices(data, sampling_rate)
-
+                elif feature == 'pli':
+                    result = compute_pli_matrices(eeg_data, sampling_rate)
+                elif feature == 'wpli':
+                    result = compute_wpli_matrices(eeg_data, sampling_rate)
+                    
                 if band == 'joint':
                     fc_matrices[identifier][current_band] = result
                 else:
@@ -394,192 +398,6 @@ def save_results(dataset, feature, identifier, data):
             f.create_dataset("connectivity", data=data, compression="gzip")
 
     print(f"Data saved to {file_path}")
-
-def fc_matrices_circle_(dataset, subject_range=range(1, 2), experiment_range=range(1, 2), feature='pcc', band='joint', save=False, verbose=True):
-    """
-    计算 SEED 数据集的相关矩阵，并可选保存。
-    
-    **新增功能**:
-    - 记录总时间
-    - 记录每个 experiment 的平均时间
-
-    参数：
-    dataset (str): 数据集名称（目前仅支持 'SEED'）。
-    subject_range (range): 被试 ID 范围，默认 1~2。
-    experiment_range (range): 实验 ID 范围，默认 1~2。
-    freq_band (str): 频带类型，可选 'alpha', 'beta', 'gamma' 或 'joint'（默认）。
-    save (bool): 是否保存结果，默认 False。
-    verbose (bool): 是否打印计时信息，默认 True。
-
-    返回：
-    dict: 计算得到的相关矩阵字典。
-    """
-    # Normalize parameters
-    dataset = dataset.upper()
-    feature = feature.lower()
-    band = band.lower()
-
-    valid_dataset = ['SEED', 'DREAMER']
-    if not dataset in valid_dataset:
-        raise ValueError("Currently only support SEED and DREAMER datasets")
-    valid_feature = ['pcc', 'plv', 'mi']
-    if feature not in valid_feature:
-        raise ValueError(f"{feature} is not a valid feature. Valid features are: {valid_feature}")
-    valid_bands = ['joint', 'theta', 'delta', 'alpha', 'beta', 'gamma']
-    if band not in valid_bands:
-        raise ValueError(f"{band} is not a valid band. Valid bands are: {valid_bands}")
-
-    def eeg_loader(dataset, subject, experiment):
-        if dataset == 'SEED':
-            identifier = f'sub{subject}ex{experiment}'
-        elif dataset == 'DREAMER':
-            identifier = f'sub{subject}'
-            
-        eeg = utils_eeg_loading.read_eeg_filtered(dataset, identifier)
-        
-        return identifier, eeg
-
-    fc_matrices_dict = {}
-
-    # **开始计时**
-    start_time = time.time()
-    experiment_count = 0  # 计数 experiment 计算次数
-    total_experiment_time = 0  # 累计 experiment 计算时间
-
-    # For processing DREAMER dataset
-    if dataset == 'DREAMER':
-        for subject in subject_range:
-            experiment_start_time = time.time()  # 记录单次 experiment 开始时间
-            experiment_count += 1
-
-            identifier, eeg_data = eeg_loader(dataset, subject, experiment=None)
-
-            if band.lower() in ['delta', 'theta', 'alpha', 'beta', 'gamma']:
-                data = np.array(eeg_data[band.lower()])
-                if feature.lower() == 'pcc':
-                    fc_matrices_dict[identifier] = compute_corr_matrices(data, sampling_rate=200)
-                elif feature.lower() == 'plv':
-                    fc_matrices_dict[identifier] = compute_plv_matrices(data, sampling_rate=200)
-                elif feature.lower() == 'mi':
-                    fc_matrices_dict[identifier] = compute_mi_matrices(data, sampling_rate=200)
-
-            elif band.lower() == 'joint':
-                fc_matrices_dict[identifier] = {}  # 确保是字典
-                for band in ['delta', 'theta', 'alpha', 'beta', 'gamma']:
-                    data = np.array(eeg_data[band])
-                    if feature.lower() == 'pcc':
-                        fc_matrices_dict[identifier][band] = compute_corr_matrices(data, sampling_rate=200)
-                    elif feature.lower() == 'plv':
-                        fc_matrices_dict[identifier][band] = compute_plv_matrices(data, sampling_rate=200)
-                    elif feature.lower() == 'mi':
-                        fc_matrices_dict[identifier][band] = compute_mi_matrices(data, sampling_rate=200)
-
-            # **记录单个 experiment 计算时间**
-            experiment_time = time.time() - experiment_start_time
-            total_experiment_time += experiment_time
-            if verbose:
-                print(f"Experiment {identifier} completed in {experiment_time:.2f} seconds")
-
-            # **保存计算结果**
-            if save:
-                path_current = os.getcwd()
-                path_parent = os.path.dirname(path_current)
-                path_parent_parent = os.path.dirname(path_parent)
-
-                path_folder = os.path.join(path_parent_parent, 'Research_Data', dataset, 'functional connectivity',
-                                           f'{feature}_h5')
-
-                """
-                将不同频段的功能连接矩阵存储为 HDF5 文件。
-                
-                参数：
-                - fc_matrices_dict (dict): 功能连接矩阵数据。
-                - path_folder (str): 存储文件的目标文件夹路径。
-                - identifier (str): 数据标识符（如实验名称）。
-                
-                返回：
-                - None
-                """
-                os.makedirs(path_folder, exist_ok=True)
-                file_path_h5 = os.path.join(path_folder, f"{identifier}.h5")
-
-                with h5py.File(file_path_h5, 'w') as f:
-                    for band in ["delta", "theta", "alpha", "beta", "gamma"]:
-                        f.create_dataset(band, data=fc_matrices_dict[identifier][band], compression="gzip")
-
-                print(f"Data saved to {file_path_h5}")
-
-    elif dataset == 'SEED':
-        for subject in subject_range:
-            for experiment in experiment_range:
-                experiment_start_time = time.time()  # 记录单次 experiment 开始时间
-                experiment_count += 1
-
-                identifier, eeg_data = eeg_loader(dataset, subject, experiment)
-
-                if band.lower() in ['delta', 'theta', 'alpha', 'beta', 'gamma']:
-                    data = np.array(eeg_data[band.lower()])
-                    if feature.lower() == 'pcc':
-                        fc_matrices_dict[identifier] = compute_corr_matrices(data, sampling_rate=200)
-                    elif feature.lower() == 'plv':
-                        fc_matrices_dict[identifier] = compute_plv_matrices(data, sampling_rate=200)
-                    elif feature.lower() == 'mi':
-                        fc_matrices_dict[identifier] = compute_mi_matrices(data, sampling_rate=200)
-
-                elif band.lower() == 'joint':
-                    fc_matrices_dict[identifier] = {}  # 确保是字典
-                    for band in ['delta', 'theta', 'alpha', 'beta', 'gamma']:
-                        data = np.array(eeg_data[band])
-                        if feature.lower() == 'pcc':
-                            fc_matrices_dict[identifier][band] = compute_corr_matrices(data, sampling_rate=200)
-                        elif feature.lower() == 'plv':
-                            fc_matrices_dict[identifier][band] = compute_plv_matrices(data, sampling_rate=200)
-                        elif feature.lower() == 'mi':
-                            fc_matrices_dict[identifier][band] = compute_mi_matrices(data, sampling_rate=200)
-
-                # **记录单个 experiment 计算时间**
-                experiment_time = time.time() - experiment_start_time
-                total_experiment_time += experiment_time
-                if verbose:
-                    print(f"Experiment {identifier} completed in {experiment_time:.2f} seconds")
-
-                # **保存计算结果**
-                if save:
-                    path_current = os.getcwd()
-                    path_parent = os.path.dirname(path_current)
-                    path_parent_parent = os.path.dirname(path_parent)
-
-                    path_folder = os.path.join(path_parent_parent, 'Research_Data', 'SEED', 'functional connectivity', f'{feature}_h5')
-
-                    """
-                    将不同频段的功能连接矩阵存储为 HDF5 文件。
-                
-                    参数：
-                    - fc_matrices_dict (dict): 功能连接矩阵数据。
-                    - path_folder (str): 存储文件的目标文件夹路径。
-                    - identifier (str): 数据标识符（如实验名称）。
-                
-                    返回：
-                    - None
-                    """
-                    os.makedirs(path_folder, exist_ok=True)
-                    file_path_h5 = os.path.join(path_folder, f"{identifier}.h5")
-
-                    with h5py.File(file_path_h5, 'w') as f:
-                        for band in ["delta", "theta", "alpha", "beta", "gamma"]:
-                            f.create_dataset(band, data=fc_matrices_dict[identifier][band], compression="gzip")
-
-                    print(f"Data saved to {file_path_h5}")
-
-    # **计算总时间 & 平均 experiment 时间**
-    total_time = time.time() - start_time
-    avg_experiment_time = total_experiment_time / experiment_count if experiment_count > 0 else 0
-
-    if verbose:
-        print(f"\nTotal time taken: {total_time:.2f} seconds")
-        print(f"Average time per experiment: {avg_experiment_time:.2f} seconds")
-    
-    return fc_matrices_dict
 
 def compute_corr_matrices(eeg_data, sampling_rate, window=1, overlap=0, verbose=True, visualization=True):
     """
@@ -679,6 +497,124 @@ def compute_plv_matrices(eeg_data, sampling_rate, window=1, overlap=0, verbose=T
         utils_visualization.draw_projection(avg_plv_matrix)
     
     return plv_matrices
+
+def compute_pli_matrices(eeg_data, sampling_rate, window=1, overlap=0, verbose=True, visualization=True):
+    """
+    Compute Phase Lag Index (PLI) matrices for EEG data using a sliding window approach.
+
+    Parameters:
+        eeg_data (numpy.ndarray): EEG data with shape (channels, time_samples).
+        sampling_rate (int): Sampling rate of the EEG data in Hz.
+        window (float): Window size in seconds for segmenting EEG data.
+        overlap (float): Overlap fraction between consecutive windows (0 to 1).
+        verbose (bool): If True, prints progress.
+        visualization (bool): If True, displays PLI matrices.
+
+    Returns:
+        list of numpy.ndarray: List of PLI matrices for each window.
+    """
+    step = int(sampling_rate * window * (1 - overlap))
+    segment_length = int(sampling_rate * window)
+
+    # Split EEG data into overlapping windows
+    split_segments = [
+        eeg_data[:, i:i + segment_length] 
+        for i in range(0, eeg_data.shape[1] - segment_length + 1, step)
+    ]
+
+    pli_matrices = []
+    for idx, segment in enumerate(split_segments):
+        if segment.shape[1] < segment_length:
+            continue  # Skip incomplete segments
+
+        # Apply Hilbert transform to get instantaneous phase
+        analytic_signal = hilbert(segment, axis=1)
+        phase_data = np.angle(analytic_signal)
+
+        # Compute PLI
+        num_channels = phase_data.shape[0]
+        pli_matrix = np.zeros((num_channels, num_channels))
+
+        for ch1 in range(num_channels):
+            for ch2 in range(num_channels):
+                if ch1 == ch2:
+                    pli_matrix[ch1, ch2] = 0
+                else:
+                    phase_diff = phase_data[ch1] - phase_data[ch2]
+                    pli = np.abs(np.mean(np.sign(np.sin(phase_diff))))
+                    pli_matrix[ch1, ch2] = pli
+
+        pli_matrices.append(pli_matrix)
+
+        if verbose:
+            print(f"Computed PLI matrix {idx + 1}/{len(split_segments)}")
+
+    # Optional visualization
+    if visualization and pli_matrices:
+        avg_pli_matrix = np.mean(pli_matrices, axis=0)
+        utils_visualization.draw_projection(avg_pli_matrix)
+
+    return pli_matrices
+
+def compute_wpli_matrices(eeg_data, sampling_rate, window=1, overlap=0, verbose=True, visualization=True):
+    """
+    Compute weighted Phase Lag Index (wPLI) matrices for EEG data using a sliding window approach.
+
+    Parameters:
+        eeg_data (numpy.ndarray): EEG data with shape (channels, time_samples).
+        sampling_rate (int): Sampling rate of the EEG data in Hz.
+        window (float): Window size in seconds for segmenting EEG data.
+        overlap (float): Overlap fraction between consecutive windows (0 to 1).
+        verbose (bool): If True, prints progress.
+        visualization (bool): If True, displays wPLI matrices.
+
+    Returns:
+        list of numpy.ndarray: List of wPLI matrices for each window.
+    """
+    step = int(sampling_rate * window * (1 - overlap))
+    segment_length = int(sampling_rate * window)
+
+    # Split EEG data into overlapping windows
+    split_segments = [
+        eeg_data[:, i:i + segment_length] 
+        for i in range(0, eeg_data.shape[1] - segment_length + 1, step)
+    ]
+
+    wpli_matrices = []
+    for idx, segment in enumerate(split_segments):
+        if segment.shape[1] < segment_length:
+            continue
+
+        # Apply Hilbert transform to get analytic signal
+        analytic_signal = hilbert(segment, axis=1)
+        num_channels = analytic_signal.shape[0]
+        wpli_matrix = np.zeros((num_channels, num_channels))
+
+        for ch1 in range(num_channels):
+            for ch2 in range(num_channels):
+                if ch1 == ch2:
+                    wpli_matrix[ch1, ch2] = 0
+                    continue
+
+                csd = analytic_signal[ch1] * np.conj(analytic_signal[ch2])
+                im_part = np.imag(csd)
+
+                numerator = np.abs(np.mean(im_part))
+                denominator = np.mean(np.abs(im_part)) + 1e-10  # avoid division by zero
+                wpli = numerator / denominator
+
+                wpli_matrix[ch1, ch2] = wpli
+
+        wpli_matrices.append(wpli_matrix)
+
+        if verbose:
+            print(f"Computed wPLI matrix {idx + 1}/{len(split_segments)}")
+
+    if visualization and wpli_matrices:
+        avg_wpli_matrix = np.mean(wpli_matrices, axis=0)
+        utils_visualization.draw_projection(avg_wpli_matrix)
+
+    return wpli_matrices
 
 from tqdm import tqdm  # 用于进度条显示
 def compute_mi_matrices(eeg_data, sampling_rate, window=1, overlap=0, verbose=True, visualization=True):
@@ -963,7 +899,6 @@ def generate_labels(sampling_rate=128):
     labels_valence = labels_valence[::sampling_rate]
 
     return labels_arousal, labels_dominance, labels_valence
-
 def normalize_to_labels(array, labels):
     """
     Normalize an array to discrete labels.
