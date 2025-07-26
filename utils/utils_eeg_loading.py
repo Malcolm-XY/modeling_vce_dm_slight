@@ -211,14 +211,20 @@ def read_eeg_filtered(dataset, identifier, freq_band='joint', object_type='panda
 
 # %% Example Usage
 if __name__ == '__main__':
-    # EEG from original dataset
+    # read original EEG (original dataset)
+    # DREAMER
     eeg_dreamer = read_eeg_original_dataset(dataset='dreamer', identifier=None)
     eeg_dreamer_ = read_and_parse_dreamer('sub1')
+    
+    # SEED
     eeg_seed_sample = read_eeg_original_dataset(dataset='seed', identifier='sub1ex1')
     eeg_seed_sample_ = read_and_parse_seed('sub1ex1')
     
-    # Filtered EEG
+    # read filtered EEG
+    # DREAMER
     filtered_eeg_dreamer_sample1 = read_eeg_filtered(dataset='dreamer', identifier='sub1', freq_band='alpha')
     filtered_eeg_dreamer_sample2 = read_eeg_filtered(dataset='dreamer', identifier='sub1', freq_band='beta')
+    
+    # SEED
     filtered_eeg_seed_sample1 = read_eeg_filtered(dataset='seed', identifier='sub1ex1', freq_band='alpha')
     filtered_eeg_seed_sample2 = read_eeg_filtered(dataset='seed', identifier='sub1ex2', freq_band='beta')

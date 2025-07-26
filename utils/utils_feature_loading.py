@@ -10,43 +10,79 @@ import os
 from . import utils_basic_reading
 
 # %% Read Feature Functions
-def read_cfs(dataset, identifier, feature, band='joint'):
+def read_cfs(dataset, identifier, feature, band='joint', file_type='.h5'):
     """
-    Reads channel feature data (CFS) from an HDF5 file.
-    
-    Parameters:
-    - dataset (str): Dataset name (e.g., 'SEED').
-    - identifier (str): Subject/Experiment identifier.
-    - feature (str): Feature type.
-    - band (str): Frequency band (default: 'joint').
-    
-    Returns:
-    - dict: Parsed CFS data.
-    """
-    dataset, identifier, feature, band = dataset.upper(), identifier.lower(), feature.lower(), band.lower()
-    path_parent_parent = os.path.dirname(os.path.dirname(os.getcwd()))
-    path_file = os.path.join(path_parent_parent, 'Research_Data', dataset, 'channel features', f'{feature}_h5', f"{identifier}.h5")
-    cfs_temp = utils_basic_reading.read_hdf5(path_file)
-    return cfs_temp if band == 'joint' else cfs_temp.get(band, {})
+    Reads channel feature data (CFS) from a file (.h5 or .mat).
 
-def read_fcs(dataset, identifier, feature, band='joint'):
-    """
-    Reads functional connectivity data (FCS) from an HDF5 file.
-    
     Parameters:
     - dataset (str): Dataset name (e.g., 'SEED').
-    - identifier (str): Subject/Experiment identifier.
-    - feature (str): Feature type.
+    - identifier (str): Subject or experiment identifier.
+    - feature (str): Feature type (e.g., 'power', 'entropy').
     - band (str): Frequency band (default: 'joint').
-    
+    - file_type (str): File extension indicating format, either '.h5' or '.mat'.
+
     Returns:
-    - dict: Parsed FCS data.
+    - dict: Parsed CFS data for the specified band. If the band is not found, returns an empty dict.
+    
+    Raises:
+    - ValueError: If the specified file_type is unsupported.
+    - FileNotFoundError: If the file does not exist.
     """
-    dataset, identifier, feature, band = dataset.upper(), identifier.lower(), feature.lower(), band.lower()
-    path_parent_parent = os.path.dirname(os.path.dirname(os.getcwd()))
-    path_file = os.path.join(path_parent_parent, 'Research_Data', dataset, 'functional connectivity', f'{feature}_h5', f"{identifier}.h5")
-    fcs_temp = utils_basic_reading.read_hdf5(path_file)
-    return fcs_temp if band == 'joint' else fcs_temp.get(band, {})
+    dataset = dataset.upper()
+    identifier = identifier.lower()
+    feature = feature.lower()
+    band = band.lower()
+
+    base_path = os.path.abspath(os.path.join(os.getcwd(), "../.."))
+    base_dir = os.path.join(base_path, 'Research_Data', dataset, 'channel features')
+
+    if file_type == '.h5':
+        path_file = os.path.join(base_dir, f'{feature}_h5', f"{identifier}.h5")
+        cfs_data = utils_basic_reading.read_hdf5(path_file)
+    elif file_type == '.mat':
+        path_file = os.path.join(base_dir, f'{feature}_mat', f"{identifier}.mat")
+        cfs_data = utils_basic_reading.read_mat(path_file)
+    else:
+        raise ValueError(f"Unsupported file_type: {file_type}. Supported types are '.h5' and '.mat'.")
+
+    return cfs_data if band == 'joint' else cfs_data.get(band, {})
+
+def read_fcs(dataset, identifier, feature, band='joint', file_type='.h5'):
+    """
+    Reads functional connectivity (FCS) data from a file (HDF5 or MAT format).
+
+    Parameters:
+    - dataset (str): Dataset name (e.g., 'SEED').
+    - identifier (str): Subject or experiment identifier.
+    - feature (str): Feature type (e.g., 'pcc', 'pli').
+    - band (str): Frequency band to extract (default: 'joint').
+    - file_type (str): File extension indicating format, either '.h5' or '.mat'.
+
+    Returns:
+    - dict: FCS data for the specified band. If the band is not found, returns an empty dict.
+    
+    Raises:
+    - ValueError: If the specified file_type is unsupported.
+    - FileNotFoundError: If the corresponding file does not exist.
+    """
+    dataset = dataset.upper()
+    identifier = identifier.lower()
+    feature = feature.lower()
+    band = band.lower()
+
+    base_path = os.path.abspath(os.path.join(os.getcwd(), "../.."))
+    base_dir = os.path.join(base_path, 'Research_Data', dataset, 'functional connectivity')
+
+    if file_type == '.h5':
+        path_file = os.path.join(base_dir, f'{feature}_h5', f"{identifier}.h5")
+        fcs_data = utils_basic_reading.read_hdf5(path_file)
+    elif file_type == '.mat':
+        path_file = os.path.join(base_dir, f'{feature}_mat', f"{identifier}.mat")
+        fcs_data = utils_basic_reading.read_mat(path_file)
+    else:
+        raise ValueError(f"Unsupported file_type: {file_type}. Supported types are '.h5' and '.mat'.")
+
+    return fcs_data if band == 'joint' else fcs_data.get(band, {})
 
 def read_fcs_global_average(dataset, feature, band='joint', source='mat'):
     dataset, feature, band, source = dataset.upper(), feature.lower(), band.lower(), source.lower()
@@ -55,14 +91,6 @@ def read_fcs_global_average(dataset, feature, band='joint', source='mat'):
                              'global_averaged_h5', f'fc_global_averaged_{feature}_{source}.h5')
     fcs_temp = utils_basic_reading.read_hdf5(path_file)
     return fcs_temp if band == 'joint' else fcs_temp.get(band, {})
-
-def read_fcs_mat(dataset, identifier, feature, band='joint'):
-    dataset, identifier, feature, band = dataset.upper(), identifier.lower(), feature.lower(), band.lower()
-    path_grandparent = os.path.abspath(os.path.join(os.getcwd(), "../.."))
-    path_file = os.path.join(path_grandparent, 'Research_Data', dataset, 'functional connectivity', f'{feature}_mat', f'{identifier}.mat')
-    fcs_mat = utils_basic_reading.read_mat(path_file)
-    
-    return fcs_mat if band == 'joint' else fcs_mat.get(band, {})
 
 # %% Read Labels Functions
 def read_labels(dataset):
@@ -125,10 +153,10 @@ def read_distribution(dataset, mapping_method='auto'):
 
     # Determine the correct file based on dataset and mapping method
     file_map = {
-        ('SEED', 'auto'): "biosemi62_64_channels_original_distribution.txt",
-        ('SEED', 'manual'): "biosemi62_64_channels_manual_distribution.txt",
-        ('DREAMER', 'auto'): "biosemi62_14_channels_original_distribution.txt",
-        ('DREAMER', 'manual'): "biosemi62_14_channels_manual_distribution.txt",
+        ('SEED', 'auto'): "biosemi64_62_channels_original_distribution.txt",
+        ('SEED', 'manual'): "biosemi64_62_channels_manual_distribution.txt",
+        ('DREAMER', 'auto'): "biosemi64_14_channels_original_distribution.txt",
+        ('DREAMER', 'manual'): "biosemi64_14_channels_manual_distribution.txt",
     }
 
     path_distr = os.path.join(base_path, file_map[(dataset, mapping_method)])
