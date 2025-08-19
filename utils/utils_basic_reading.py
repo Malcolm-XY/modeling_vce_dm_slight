@@ -11,17 +11,37 @@ import numpy as np
 import pandas as pd
 
 # %% Basic File Reading Functions
-def read_txt(path_file):
+def read_txt(path_file, header=False, encoding='utf-8'):
     """
     Reads a text file and returns its content as a Pandas DataFrame.
-    
+
     Parameters:
     - path_file (str): Path to the text file.
-    
+    - header (bool or int): Whether the file contains a header row.
+                            If True, use the first row as header.
+                            If False, no header is assumed.
+                            If int, use that row number as header.
+    - encoding (str): Encoding to use when reading the file. Default is 'utf-8'.
+
     Returns:
     - pd.DataFrame: DataFrame containing the parsed text data.
     """
-    return pd.read_csv(path_file, sep=r'\s+', engine='python')
+    if not os.path.isfile(path_file):
+        raise FileNotFoundError(f"File not found: {path_file}")
+
+    if isinstance(header, bool):
+        header_value = 0 if header else None
+    elif isinstance(header, int):
+        header_value = header
+    else:
+        raise ValueError("`header` must be a boolean or an integer.")
+
+    try:
+        txt = pd.read_csv(path_file, sep=r'\s+', engine='python', header=header_value, encoding=encoding)
+    except Exception as e:
+        raise ValueError(f"Failed to read file '{path_file}': {e}")
+    
+    return txt
 
 def read_xlsx(path_file):
     xls = pd.ExcelFile(path_file)

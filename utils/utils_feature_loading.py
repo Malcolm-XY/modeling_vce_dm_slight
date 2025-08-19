@@ -84,16 +84,22 @@ def read_fcs(dataset, identifier, feature, band='joint', file_type='.h5'):
 
     return fcs_data if band == 'joint' else fcs_data.get(band, {})
 
-def read_fcs_global_average(dataset, feature, band='joint', source='mat'):
-    dataset, feature, band, source = dataset.upper(), feature.lower(), band.lower(), source.lower()
+def read_fcs_global_average(dataset, feature, band='joint', sub_range=range(1, 16)):
+    dataset, feature, band = dataset.upper(), feature.lower(), band.lower()
+    
+    if dataset == 'SEED':
+        total_subjects = 15
+    elif dataset == 'DREAMER':
+        total_subjects = 23
+    
     path_parent_parent = os.path.dirname(os.path.dirname(os.getcwd()))
     path_file = os.path.join(path_parent_parent, 'Research_Data', dataset, 'functional connectivity', 
-                             'global_averaged_h5', f'fc_global_averaged_{feature}_{source}.h5')
+                             f'{feature}_h5', f'global_averaged_{sub_range.stop-1}_{total_subjects}.h5')
     fcs_temp = utils_basic_reading.read_hdf5(path_file)
     return fcs_temp if band == 'joint' else fcs_temp.get(band, {})
 
 # %% Read Labels Functions
-def read_labels(dataset):
+def read_labels(dataset, header=False):
     """
     Reads emotion labels for a specified dataset.
     
@@ -113,10 +119,10 @@ def read_labels(dataset):
         path_labels = os.path.join(path_parent_parent, 'Research_Data', 'DREAMER', 'labels', 'labels_dreamer.txt')
     else:
         raise ValueError('Currently only support SEED and DREAMER')
-    return utils_basic_reading.read_txt(path_labels)
+    return utils_basic_reading.read_txt(path_labels, header)
 
 # %% Read Distributions
-def read_distribution(dataset, mapping_method='auto'):
+def read_distribution(dataset, mapping_method='auto', header=True):
     """
     Read the electrode distribution file for a given EEG dataset and mapping method.
 
@@ -166,7 +172,7 @@ def read_distribution(dataset, mapping_method='auto'):
         raise FileNotFoundError(f"Distribution file not found: {path_distr}. Check dataset and mapping method.")
 
     # Read and return the distribution file
-    distribution = utils_basic_reading.read_txt(path_distr)
+    distribution = utils_basic_reading.read_txt(path_distr, header)
     
     return distribution
 
